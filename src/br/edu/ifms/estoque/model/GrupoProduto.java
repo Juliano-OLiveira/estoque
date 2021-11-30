@@ -45,4 +45,12 @@ public class GrupoProduto {
     public void setSubgrupo(GrupoProduto subgrupo) {
         this.subgrupo = subgrupo;
     }
+    
+    public Object[] toArray() {
+        Object[] array = new Object[3];
+        array[0] = this.id;
+        array[1] = this.nome;
+        array[2] = this.subgrupo;
+        return array;
+    }
 }

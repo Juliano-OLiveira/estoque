@@ -23,6 +23,8 @@ public class GrupoProdutoQueries {
     private PreparedStatement selectAllGrupos;
     private PreparedStatement selectGrupoByNome;
     private PreparedStatement insertNovoGrupo;
+    private PreparedStatement insertSemsubGrupo;
+    private PreparedStatement deleteSelectedGrupo;
 
     public GrupoProdutoQueries() {
         try {
@@ -34,9 +36,8 @@ public class GrupoProdutoQueries {
             selectAllGrupos = conn.prepareStatement(
                     "SELECT gp.id, gp.nome, lgp.id as subgrupo_id, lgp.nome as subgrupo_nome "
                     + "  FROM grupo_produto AS gp"
-                    + "  LEFT JOIN grupo_produto AS lgp"
-                            + "ON lgp.id = gp.subgrupo"
-                            );
+                    + "  LEFT JOIN grupo_produto AS lgp ON gp.sub_grupo = lgp.id"
+            );
             /**
              * Cria consulta que seleciona os grupos de produtos com o nome
              * informado
@@ -49,32 +50,37 @@ public class GrupoProdutoQueries {
             /**
              * Cria a inserção que adiciona uma nova entrada no banco de dados
              */
-            insertNovoGrupo = conn.prepareStatement("INSERT INTO grupo_produto (id, nome, sub_grupo) VALUES (?, ?, ?)");
+            insertNovoGrupo = conn.prepareStatement("INSERT INTO grupo_produto (nome,sub_grupo) VALUES (?, ?)");
+            insertSemsubGrupo = conn.prepareStatement("INSERT INTO grupo_produto (nome) VALUES (?)");
+
+            // deletando
+            deleteSelectedGrupo = conn.prepareStatement("delete from grupo_produto where id = ?");
+
         } catch (SQLException ex) {
             ex.printStackTrace();
             System.exit(1);
         }
     }
 
-    private List<GrupoProduto> mapObjeGrupoProdutos(ResultSet rs) throws SQLException{
-    List <GrupoProduto> lista = new ArrayList<>();
-      GrupoProduto subGrupoProduto = null;
-         if(rs.getLong("subgrupo_id") != 0){
-     while (rs.next()) {
-                GrupoProduto subGrupo = new GrupoProduto(
-                        rs.getLong("subgrupo_id"),
-                        rs.getString("subgrupo_nome"), null);
+    private List<GrupoProduto> mapObjeGrupoProdutos(ResultSet rs) throws SQLException {
+        List<GrupoProduto> lista = new ArrayList<>();
+        GrupoProduto subGrupoProduto = null;
 
-                lista.add(new GrupoProduto(
-                        rs.getLong("id"),
-                        rs.getString("nome"),
-                        subGrupo
-                ));
-            }
-         }
-     return lista;
+        while (rs.next()) {
+            GrupoProduto subGrupo = new GrupoProduto(
+                    rs.getLong("subgrupo_id"),
+                    rs.getString("subgrupo_nome"), null);
+
+            lista.add(new GrupoProduto(
+                    rs.getLong("id"),
+                    rs.getString("nome"),
+                    subGrupo
+            ));
+        }
+
+        return lista;
     }
-    
+
     public List<GrupoProduto> getAllGrupos() {
         List<GrupoProduto> results = null;
         ResultSet resultSet = null;
@@ -82,12 +88,13 @@ public class GrupoProdutoQueries {
         try {
             resultSet = selectAllGrupos.executeQuery();
             results = mapObjeGrupoProdutos(resultSet);
-          
+
         } catch (SQLException ex) {
             ex.printStackTrace();
         } finally {
             try {
                 resultSet.close();
+                return results;
             } catch (SQLException ex) {
                 ex.printStackTrace();
                 close();
@@ -104,7 +111,7 @@ public class GrupoProdutoQueries {
             selectGrupoByNome.setString(1, nome);
             resultSet = selectGrupoByNome.executeQuery();
             results = mapObjeGrupoProdutos(resultSet);
-          
+
         } catch (SQLException ex) {
             ex.printStackTrace();
         } finally {
@@ -112,25 +119,31 @@ public class GrupoProdutoQueries {
                 resultSet.close();
             } catch (SQLException ex) {
                 ex.printStackTrace();
-                close();
+                //  close();
             }
         }
         return null;
     }
 
-    public int addGrupoProduto(Long id, String nome, GrupoProduto subGrupo) {
+    public int addGrupoProduto(String nome, GrupoProduto subGrupo) {
         int result = 0;
 
         try {
-            insertNovoGrupo.setLong(1, id);
-            insertNovoGrupo.setString(2, nome);
-            insertNovoGrupo.setLong(3, subGrupo.getId());
+            if (subGrupo == null) {
+                insertSemsubGrupo.setString(1, nome);
+                result = insertSemsubGrupo.executeUpdate();
 
-            result = insertNovoGrupo.executeUpdate();
+            } else {
+                insertNovoGrupo.setString(1, nome);
+                Long idsubGrupo = subGrupo != null ? subGrupo.getId() : null;
+                insertNovoGrupo.setLong(2, idsubGrupo);
+
+                result = insertNovoGrupo.executeUpdate();
+            }
         } catch (SQLException ex) {
             ex.printStackTrace();
         } finally {
-            close();
+            //  close();
         }
         return result;
     }
@@ -141,5 +154,21 @@ public class GrupoProdutoQueries {
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
+    }
+
+    public int deleteGrupoProduto(Long id) {
+        int result = 0;
+
+        try {
+
+            deleteSelectedGrupo.setLong(1, id);
+            result = deleteSelectedGrupo.executeUpdate();
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        } finally {
+            //  close();
+        }
+        return result;
     }
 }
